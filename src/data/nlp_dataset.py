@@ -1,14 +1,20 @@
 import logging
 import pathlib
+import coloredlogs
 from pathlib import Path
 from typing import Union,Dict,List
-from .utils import sel_column_label, train_val_test_split
+from .utils import sel_column_label, train_val_test_split, save_csv
+from flair.datasets import CSVClassificationCorpus
 
-logging.basicConfig( level=logging.DEBUG,
-     format='%(asctime)s:%(levelname)s:%(message)s')
-#logger = logging.getLogger("entiretydotai")
-#logging.getLogger("entiretydotai")
+# logger = logging.getLogger("nlp_dataset")
+# logger.setLevel(logging.DEBUG)
+# formatter = logging.Formatter('%(asctime)s:%(name)s:%(message)s')
+# stream_handler = logging.StreamHandler()
+# stream_handler.setFormatter(formatter)
+# logger.addHandler(stream_handler)
+# coloredlogs.install(fmt='%(asctime)s %(name)s %(levelname)s %(message)s',level='DEBUG',logger = logger)
 
+logger = logging.getLogger("entiretydotai")
 
 class FlairDataset():
     """[summary]
@@ -25,6 +31,8 @@ class FlairDataset():
             train_file=None,
             test_file=None,
             dev_file=None,
+            file_format = None,
+            delimiter = None,
             encoding: str = "utf-8"):
         super().__init__()
 
@@ -33,49 +41,70 @@ class FlairDataset():
         self.train_file = train_file
         self.test_file = test_file
         self.dev_file = dev_file
+        self.file_format = file_format
+        self.delimiter = delimiter
     
+        if self.file_format == '.csv':
+            logger.debug(f'Loading data in Flair CSVClassificationCorpus from path :{self.data_folder}')
+            corpus = CSVClassificationCorpus(
+                data_folder=self.data_folder,
+                train_file=self.train_file,
+                dev_file=self.dev_file,
+                test_file=self.test_file,
+                column_name_map=self.column_name_map,
+                delimiter = self.delimiter)
+            logger.debug(f'Number of Sentences loaded[Train]:{corpus.train.total_sentence_count}')
+            logger.debug(f'Type of tokenizer:{corpus.train.tokenizer.__name__}')
+            logger.debug(f'Sample sentence and Label from [Train]:{corpus.train.__getitem__(1)}\n')
+            logger.debug(f'Number of Sentences loaded[Valid]:{corpus.dev.total_sentence_count}')
+            logger.debug(f'Type of tokenizer:{corpus.dev.tokenizer.__name__}')
+            logger.debug(f'Sample sentence and Label from [Train]:{corpus.dev.__getitem__(1)}\n')
+            logger.debug(f'Number of Sentences loaded[Test]:{corpus.test.total_sentence_count}')
+            logger.debug(f'Type of tokenizer:{corpus.test.tokenizer.__name__}')
+            logger.debug(f'Sample sentence and Label from [Train]:{corpus.test.__getitem__(1)}\n')
     
     @classmethod
-    def load_for_classification(cls,
+    def csv_classification(cls,
         data_folder = Union[str,Path],
         file_format: str = 'csv',
         filename: str = 'data',
         train_val_test_split_flag: str = True ,
+        column_mapping: List = None, 
         val_split_size: List = [0.1,0.1]):
         
             p = Path(data_folder).resolve()
             if p.is_dir():
-                logging.debug(f'Found directory : {p.absolute()}')
+                logger.debug(f'Found directory : {p}')
                 files  = list(p.rglob('*.'+file_format))
-                logging.debug(f'Number of files found {len(files)}')
+                logger.debug(f'Number of files found {len(files)}')
                 if len(files) < 2:
-                    logging.debug(f'Found 1 file : {files[0].name}')
+                    logger.debug(f'Found 1 file : {files[0].name}')
                     train_val_test_split_flag = True
-                    logging.debug("Setting train_val_test_split_flag to True")
+                    logger.debug("Setting train_val_test_split_flag to True")
                     
                 if train_val_test_split_flag:
                     if files[0].stem.lower() == filename:
                         train_file = files[0].name
-                        df, column_name_map = sel_column_label(files[0])
-                        
-                        ## Save original file(df) in  data/external folder
-                        
+                        flair_mapping = ['text','label']
+                        df, column_name_map = sel_column_label(files[0],column_mapping,flair_mapping)
+                        logger.debug(f'[column_name_map] {column_name_map}')
                         train, valid, test = train_val_test_split(df, val_split_size)
-                        
-                        ## Save into data/interim folder
-                        #path_to_save = p.cwd() / 'datasets'
-                        #path_to_save.mkdir(parents=True, exist_ok=True)
-                        #filepath = path_to_save /'valid.csv'
-                        #valid.to_csv(filepath,index=False)
-                        return FlairDataset(data_folder = p, column_name_map = column_name_map ,
-                                                        train_file=train_file,
-                                                        test_file=None,
-                                                        dev_file=None )
+                        path_to_save = Path(p.parent.parent/'interim')
+                        save_csv(train, path_to_save, 'train')
+                        save_csv(valid, path_to_save, 'valid')
+                        save_csv(test, path_to_save, 'test')
+                        return FlairDataset(data_folder = path_to_save,
+                                            column_name_map = column_name_map ,
+                                            train_file= 'train.csv',
+                                            test_file = 'test.csv',
+                                            dev_file = 'valid.csv',
+                                            file_format = '.csv',
+                                            delimiter = ",")                     
                     else:
                         raise FileNotFoundError
 
                 else:
-                    pass
+                    raise NotImplementedError
 
 
 
@@ -87,6 +116,6 @@ class FlairDataset():
 
 if __name__== "__main__":
         
-    FlairDataset.load_for_classification(
-        data_folder='path_to_dir')
+    FlairDataset.csv_classification(
+        data_folder='path_to_dir',column_mapping=['text','label'])
 

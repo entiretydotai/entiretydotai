@@ -3,3 +3,6 @@ __pycache__/
 .vscode/
 *.ipynb_checkpoints/
 train.csv
+real_fake_disaster/
+test.csv
+valid.csv
