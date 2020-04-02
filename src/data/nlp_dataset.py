@@ -1,5 +1,6 @@
 import logging
 import pathlib
+import pandas as pd
 import coloredlogs
 from pathlib import Path
 from typing import Union,Dict,List
@@ -33,7 +34,10 @@ class FlairDataset():
             dev_file=None,
             file_format = None,
             delimiter = None,
-            encoding: str = "utf-8"):
+            encoding: str = "utf-8",
+            train_data: pd.DataFrame = None,
+            val_data: pd.DataFrame = None,
+            test_data : pd.DataFrame = None):
         super().__init__()
 
         self.data_folder = data_folder
@@ -45,24 +49,27 @@ class FlairDataset():
         self.delimiter = delimiter
     
         if self.file_format == '.csv':
-            logger.debug(f'Loading data in Flair CSVClassificationCorpus from path :{self.data_folder}')
-            corpus = CSVClassificationCorpus(
+            logger.debug(f'Loading data in Flair CSV ClassificationCorpus from path :{self.data_folder}')
+            self.corpus = CSVClassificationCorpus(
                 data_folder=self.data_folder,
                 train_file=self.train_file,
                 dev_file=self.dev_file,
                 test_file=self.test_file,
                 column_name_map=self.column_name_map,
                 delimiter = self.delimiter)
-            logger.debug(f'Number of Sentences loaded[Train]:{corpus.train.total_sentence_count}')
-            logger.debug(f'Type of tokenizer:{corpus.train.tokenizer.__name__}')
-            logger.debug(f'Sample sentence and Label from [Train]:{corpus.train.__getitem__(1)}\n')
-            logger.debug(f'Number of Sentences loaded[Valid]:{corpus.dev.total_sentence_count}')
-            logger.debug(f'Type of tokenizer:{corpus.dev.tokenizer.__name__}')
-            logger.debug(f'Sample sentence and Label from [Train]:{corpus.dev.__getitem__(1)}\n')
-            logger.debug(f'Number of Sentences loaded[Test]:{corpus.test.total_sentence_count}')
-            logger.debug(f'Type of tokenizer:{corpus.test.tokenizer.__name__}')
-            logger.debug(f'Sample sentence and Label from [Train]:{corpus.test.__getitem__(1)}\n')
-    
+            logger.debug(f'Number of Sentences loaded[Train]:{self.corpus.train.total_sentence_count}')
+            logger.debug(f'Type of tokenizer:{self.corpus.train.tokenizer.__name__}')
+            logger.debug(f'Sample sentence and Label from [Train]:{self.corpus.train.__getitem__(1)}\n')
+            logger.debug(f'Number of Sentences loaded[Valid]:{self.corpus.dev.total_sentence_count}')
+            logger.debug(f'Type of tokenizer:{self.corpus.dev.tokenizer.__name__}')
+            logger.debug(f'Sample sentence and Label from [Train]:{self.corpus.dev.__getitem__(1)}\n')
+            logger.debug(f'Number of Sentences loaded[Test]:{self.corpus.test.total_sentence_count}')
+            logger.debug(f'Type of tokenizer:{self.corpus.test.tokenizer.__name__}')
+            logger.debug(f'Sample sentence and Label from [Train]:{self.corpus.test.__getitem__(1)}\n')
+            self.train_data = train_data
+            self.valid_data = val_data
+            self.test_data = test_data
+
     @classmethod
     def csv_classification(cls,
         data_folder = Union[str,Path],
@@ -99,7 +106,10 @@ class FlairDataset():
                                             test_file = 'test.csv',
                                             dev_file = 'valid.csv',
                                             file_format = '.csv',
-                                            delimiter = ",")                     
+                                            delimiter = ",",
+                                            train_data = train,
+                                            val_data = valid,
+                                            test_data = test)                     
                     else:
                         raise FileNotFoundError
 
