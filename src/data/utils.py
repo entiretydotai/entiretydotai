@@ -6,6 +6,9 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split
 from typing import List, Union
 from functools import wraps
+from flair.data import Sentence
+from flair.models import SequenceTagger
+from .gen_utils import clean_flair_tags
 
 # logger = logging.getLogger("utils")
 # logger.setLevel(logging.DEBUG)
@@ -152,6 +155,82 @@ def drop_cols(df: pd.DataFrame, to_drop_cols : List, axis : int = 1):
     df = df.drop(to_drop_cols,axis=1)
     logger.debug(f'Successfully dropped {to_drop_cols} from dataframe ')
     return df
+
+
+def extract_tag(rows : List =  None, model: Union[str, Path] = 'ner-fast'):
+    sentence = Sentence(rows)
+    #logger.debug(f'Processing sentence: {rows}')
+    #print("Processsing sentence",rows)
+    model.predict(sentence)
+    return sentence
+
+
+@my_timer
+def flair_tags(rows : List, model_name: Union[str, Path] = 'ner-fast',
+            tag_type: str = 'ner',extract_tags : bool = False,
+            return_score: float = False):
+    
+    model = SequenceTagger.load(model_name)
+    logger.debug(f'MODEL: [{model_name}] is loaded ...')
+    sentences = [extract_tag(i,model) for i in rows]
+    if extract_tags:
+        corpus_text = []
+        corpus_cleaned_tag = []
+        corpus_score = []
+        for sentence in sentences:
+            #text = []
+            cleaned_tag = []
+            score = []
+            text = sentence.to_tokenized_string().split(" ")
+            entity_tagged = sentence.get_spans(tag_type)
+            tagged_text = [ent.text for ent in entity_tagged]
+            tagged_label = [ent.tag for ent in entity_tagged]
+            if return_score:
+                tagged_score = [ent.score for ent in entity_tagged]
+            for i in text:
+                if i in tagged_text:
+                    #corpus.append(i)
+                    index = tagged_text.index(i)
+                    cleaned_tag.append(tagged_label[index])
+                    if return_score:
+                        score.append(round(tagged_score[index],2))
+                
+                else:
+                    #corpus.append(i)
+                    cleaned_tag.append("NA")
+                    if return_score:
+                        score.append(np.NaN)
+
+            corpus_text.append(text)
+            corpus_cleaned_tag.append(cleaned_tag)
+            corpus_score.append(score)
+        if return_score:
+            return [corpus_text,corpus_cleaned_tag,corpus_score]
+        else:
+            return [corpus_text,corpus_cleaned_tag]
+
+    else:
+        corpus_tags = [i.to_tagged_string() for i in sentences]
+        return [corpus_tags]
+
+@my_timer
+def flair_tags_as_string(rows : List, model_name: Union[str, Path] = 'ner-fast',
+            tag_type: str = 'ner',clean_tags: bool = True):
+    
+    model = SequenceTagger.load(model_name)
+    logger.debug(f'MODEL: [{model_name}] is loaded ...')
+    sentences = [extract_tag(i,model) for i in rows]
+    tagged_sentences = [i.to_tagged_string() for i in sentences]
+    corpus = []
+    corpus_tags = []
+    for sent in tagged_sentences:
+        corpus.append([i for i in sent.split(" ") if not i.strip().startswith("<")])
+        if clean_tags:
+            corpus_tags.append([clean_flair_tags(i) for i in sent.split(" ") if i.strip().startswith("<")])
+        else:
+            corpus_tags.append([i for i in sent.split(" ") if  i.strip().startswith("<")])
+
+    return [tagged_sentences,corpus,corpus_tags]
 
 
 if __name__== "__main__":

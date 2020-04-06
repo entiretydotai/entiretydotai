@@ -1,1 +1,1 @@
-from .data.nlp_dataset import FlairDataset
+from .data.nlp_dataset import FlairDataset, FlairTagging
